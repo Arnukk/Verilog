@@ -3,6 +3,8 @@
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <title>Logic Circuit</title>	
 <script src="go.js"></script>
+<script src="jspdf.js"></script>
+  
 <script id="code">
 
     var red = "orangered";
@@ -69,8 +71,8 @@
                 {
                   selectionAdorned: false,
                   shadowOffset: new go.Point(0, 0),
-                  shadowBlur: 15,
-                  shadowColor: "blue",
+                  shadowBlur: 0,
+                  shadowColor: "white",
                   toolTip: sharedToolTip
                 }];
 				
@@ -81,14 +83,14 @@
           name: "NODESHAPE",
           fill: "white",
           stroke: "darkslategray",
-          desiredSize: new go.Size(70, 70),
+          desiredSize: new go.Size(65, 65),
           strokeWidth: 2
         };
       }
 
       function portStyle(input) {
         return {
-          desiredSize: new go.Size(6, 6),
+          desiredSize: new go.Size(5, 5),
           fill: "black",
           fromSpot: go.Spot.Right,
           fromLinkable: !input,
@@ -102,33 +104,24 @@
       // define templates for each type of node
       var inputTemplate =
 		 
-        $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "Circle", shapeStyle(),
-            { fill: red }),  // override the default fill (from shapeStyle()) to be red
-          $(go.Shape, "Rectangle", portStyle(false),  // the only port
-            { portId: "", alignment: new go.Spot(1, 0.5) }),
-		  $(go.TextBlock,
-				{font: "bold 8pt Helvetica, bold Arial, sans-serif",
-				alignment: go.Spot.Center,
-				width: 50,
-				margin: 10,
-				wrap: go.TextBlock.WrapFit},
-			new go.Binding("text", "name")),
-          { // if double-clicked, an input node will change its value, represented by the color.
-            doubleClick: function (e, obj) {
-                e.diagram.startTransaction("Toggle Input");
-                var shp = obj.findObject("NODESHAPE");
-                shp.fill = (shp.fill === green) ? red : green;
-                updateStates();
-                e.diagram.commitTransaction("Toggle Input");
-              }
-          }
-        );
+      $(go.Node, "Spot", nodeStyle(),
+      $(go.Shape, "Circle", shapeStyle(),
+        { fill: "black" }),  // override the default fill (from shapeStyle()) to be red
+      $(go.Shape, "Rectangle", portStyle(false),  // the only port
+        {portId: "", alignment: new go.Spot(1, 0.5) }),
+      $(go.TextBlock,
+        {font: "bold 8pt Helvetica, bold Arial, sans-serif",
+        alignment: go.Spot.Center,
+        width: 50,
+        margin: 10,
+        wrap: go.TextBlock.WrapFit},
+        new go.Binding("text", "name"))
+      );
 
       var outputTemplate =
         $(go.Node, "Spot", nodeStyle(),
           $(go.Shape, "Rectangle", shapeStyle(),
-            { fill: green }),  // override the default fill (from shapeStyle()) to be green
+            { fill: "black" }),  // override the default fill (from shapeStyle()) to be green
           $(go.Shape, "Rectangle", portStyle(true),  // the only port
             { portId: "", alignment: new go.Spot(0, 0.5) })
         );
@@ -308,8 +301,7 @@
       setOutputLinks(node, color);
     }
 	  
-	  
-	  
+	 
     function doNot(node) {
       var color = !node.findLinksInto().all(linkIsTrue) ? green : red;
       setOutputLinks(node, color);
@@ -364,7 +356,7 @@
 		</span>
 	 
 	<span style="display: inline-block; vertical-align: top; padding: 5px; width:80%">
-		  <div id="myDiagram" style="border: 1px solid black; height: 500px; position: relative; cursor: auto;"><canvas tabindex="0" height="500" width="912" style="position: absolute; top: 0px; left: 0px; z-index: 2; -moz-user-select: none; width: 912px; height: 500px; cursor: auto;">This text is displayed if your browser does not support the Canvas HTML element.</canvas><div style="position: absolute; overflow: auto; width: 912px; height: 500px; z-index: 1;"><div style="position: absolute; width: 1px; height: 1px;"></div></div><div style="position: absolute; overflow: auto; width: 912px; height: 500px; z-index: 1;"><div style="position: absolute; width: 1px; height: 1px;"></div></div></div>
+		  <div id="myDiagram" style="border: 1px solid black; height: 500px; position: relative; cursor: auto;"><canvas tabindex="0" height="2000" width="3648" style="position: absolute; top: 0px; left: 0px; z-index: 2; -moz-user-select: none; width: 912px; height: 500px; cursor: auto;">This text is displayed if your browser does not support the Canvas HTML element.</canvas><div style="position: absolute; overflow: auto; width: 912px; height: 500px; z-index: 1;"><div style="position: absolute; width: 1px; height: 1px;"></div></div><div style="position: absolute; overflow: auto; width: 912px; height: 500px; z-index: 1;"><div style="position: absolute; width: 1px; height: 1px;"></div></div></div>
 	</span>
 		<div id="veriloginputbox" style="position:relative; text-align:left;">
 			<label for="verilogInputfile" style="">Please input below the verilog file content.</label>
@@ -377,6 +369,7 @@
   <div id="buttons">
     <button id="loadModel" onclick="load()">Load</button>
     <button disabled="disabled" id="saveModel" onclick="save()">Save</button>
+    <button id="exportModel" >Download</button>
   </div>
 
 	
