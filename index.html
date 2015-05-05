@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html><head>
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-<title>Logic Circuit</title>	
+<title>Logic Circuit</title>
 <script src="go.js"></script>
 <script src="jspdf.js"></script>
-  
+
 <script id="code">
 
     var red = "orangered";
     var green = "ForestGreen";
-
+    
     function init() {
       if (window.goSamples) goSamples();  // init for these samples -- you don't need to call this
       var $ = go.GraphObject.make;  // for conciseness in defining templates
@@ -45,24 +45,12 @@
             corner: 3,
             relinkableFrom: true, relinkableTo: true,
             selectionAdorned: false, // Links are not adorned when selected so that their color remains visible.
-            shadowOffset: new go.Point(0, 0), shadowBlur: 5, shadowColor: "blue",
+            shadowOffset: new go.Point(0, 0), shadowBlur: 0, shadowColor: "blue",
           },
           new go.Binding("isShadowed", "isSelected").ofObject(),
           $(go.Shape,
             { name: "SHAPE", isPanelMain: true, strokeWidth: 2, stroke: red }));
 
-			
-		// get tooltip text from the object's data
-		function tooltipTextConverter(element) {
-		  var str = element.name;
-		  return str;
-		}
-
-      // node template helpers
-      var sharedToolTip =
-        $(go.Adornment, "Auto",
-          $(go.Shape, "RoundedRectangle", { fill: "lightyellow" })
-		);
 
       // define some common property settings
       function nodeStyle() {
@@ -72,8 +60,7 @@
                   selectionAdorned: false,
                   shadowOffset: new go.Point(0, 0),
                   shadowBlur: 0,
-                  shadowColor: "white",
-                  toolTip: sharedToolTip
+                  shadowColor: "white"
                 }];
 				
       }
@@ -82,15 +69,31 @@
         return {
           name: "NODESHAPE",
           fill: "white",
-          stroke: "darkslategray",
-          desiredSize: new go.Size(65, 65),
-          strokeWidth: 2
+          stroke: "black",
+          desiredSize: new go.Size(60, 60),
+          strokeWidth: 2,
+          row:1,
+          column:0
         };
       }
-
+      
+      function Textblockstyle(){
+        return {
+          row:0,
+          column:0,
+          font: "bold 11pt Helvetica, bold Arial, sans-serif",
+          alignment: go.Spot.Center,
+          width: 60,
+          margin:5,
+          editable: false,
+          wrap: go.TextBlock.WrapFit
+        };
+      }
       function portStyle(input) {
         return {
-          desiredSize: new go.Size(5, 5),
+          row:1,
+          column:1,
+          desiredSize: new go.Size(1, 1),
           fill: "black",
           fromSpot: go.Spot.Right,
           fromLinkable: !input,
@@ -103,104 +106,114 @@
 
       // define templates for each type of node
       var inputTemplate =
-		 
-      $(go.Node, "Spot", nodeStyle(),
-      $(go.Shape, "Circle", shapeStyle(),
-        { fill: "black" }),  // override the default fill (from shapeStyle()) to be red
-      $(go.Shape, "Rectangle", portStyle(false),  // the only port
-        {portId: "", alignment: new go.Spot(1, 0.5) }),
-      $(go.TextBlock,
-        {font: "bold 8pt Helvetica, bold Arial, sans-serif",
-        alignment: go.Spot.Center,
-        width: 50,
-        margin: 10,
-        wrap: go.TextBlock.WrapFit},
-        new go.Binding("text", "name"))
-      );
+        $(go.Node, "Spot", nodeStyle(),
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(),new go.Binding("text", "name")),
+            $(go.Shape, "Circle", shapeStyle()),  
+            $(go.Shape, "Rectangle", portStyle(false),  // the only port
+              {portId: "", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var outputTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "Rectangle", shapeStyle(),
-            { fill: "black" }),  // override the default fill (from shapeStyle()) to be green
-          $(go.Shape, "Rectangle", portStyle(true),  // the only port
-            { portId: "", alignment: new go.Spot(0, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {row:0, column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "Rectangle", shapeStyle(),{row:1, column:1}),
+            $(go.Shape, "Rectangle", portStyle(true),  // the only port
+            { row:1, column:0, portId: "", alignment: new go.Spot(0, 0.5) })
+        ));
 
       var andTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "AndGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in1", alignment: new go.Spot(0, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in2", alignment: new go.Spot(0, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false),
-            { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "AndGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:0, portId: "in1", alignment: new go.Spot(0, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:0, portId: "in2", alignment: new go.Spot(0, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false),
+              { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var orTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "OrGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in1", alignment: new go.Spot(0.16, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in2", alignment: new go.Spot(0.16, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false),
-            { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "OrGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in1", alignment: new go.Spot(0.15, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in2", alignment: new go.Spot(0.15, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false),
+              { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var xorTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "XorGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in1", alignment: new go.Spot(0.26, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in2", alignment: new go.Spot(0.26, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false),
-            { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "XorGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in1", alignment: new go.Spot(0.25, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in2", alignment: new go.Spot(0.25, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false),
+              { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var norTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "NorGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in1", alignment: new go.Spot(0.16, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),
-            { portId: "in2", alignment: new go.Spot(0.16, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false),
-            { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "NorGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in1", alignment: new go.Spot(0.15, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),
+              { row:1, column:1, portId: "in2", alignment: new go.Spot(0.15, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false),
+              { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var xnorTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "XnorGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in1", alignment: new go.Spot(0.26, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in2", alignment: new go.Spot(0.26, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false), { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "XnorGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:1, portId: "in1", alignment: new go.Spot(0.25, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:1, portId: "in2", alignment: new go.Spot(0.25, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false), { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var nandTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "NandGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in1", alignment: new go.Spot(0, 0.3) }),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in2", alignment: new go.Spot(0, 0.7) }),
-          $(go.Shape, "Rectangle", portStyle(false), { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "NandGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in1", alignment: new go.Spot(0, 0.3) }),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in2", alignment: new go.Spot(0, 0.7) }),
+            $(go.Shape, "Rectangle", portStyle(false), { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       var nand3Template =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "NandGate", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in1", alignment: new go.Spot(0, 0.1) }),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in2", alignment: new go.Spot(0, 0.5) }),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in3", alignment: new go.Spot(0, 0.9) }),		  
-          $(go.Shape, "Rectangle", portStyle(false), { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "NandGate", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in1", alignment: new go.Spot(0, 0.1) }),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in2", alignment: new go.Spot(0, 0.5) }),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in3", alignment: new go.Spot(0, 0.9) }),		  
+            $(go.Shape, "Rectangle", portStyle(false), { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 						
       var notTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Shape, "Inverter", shapeStyle()),
-          $(go.Shape, "Rectangle", portStyle(true),  { portId: "in", alignment: new go.Spot(0, 0.5) }),
-          $(go.Shape, "Rectangle", portStyle(false), { portId: "out", alignment: new go.Spot(1, 0.5) })
-        );
+          $(go.Panel, go.Panel.Table,
+            $(go.TextBlock,Textblockstyle(), {column:1}, new go.Binding("text", "name")),
+            $(go.Shape, "Inverter", shapeStyle(), {column: 1}),
+            $(go.Shape, "Rectangle", portStyle(true),  { row:1, column:0, portId: "in", alignment: new go.Spot(0, 0.5) }),
+            $(go.Shape, "Rectangle", portStyle(false), { row:1, column:2, portId: "out", alignment: new go.Spot(1, 0.5) })
+        ));
 
       // add the templates created above to myDiagram and palette
       myDiagram.nodeTemplateMap.add("input", inputTemplate);
@@ -277,7 +290,7 @@
 
     // helper function for propagating results
     function setOutputLinks(node, color) {
-      node.findLinksOutOf().each(function(link) { link.findObject("SHAPE").stroke = color; });
+      node.findLinksOutOf().each(function(link) { link.findObject("SHAPE").stroke = "black"; });
     }
 
     // update nodes by the specific function for its type
@@ -332,7 +345,7 @@
     function doOutput(node) {
       // assume there is just one input link
       // we just need to update the node's Shape.fill
-      node.linksConnected.each(function(link) { node.findObject("NODESHAPE").fill = link.findObject("SHAPE").stroke; });
+      node.linksConnected.each(function(link) { node.findObject("NODESHAPE").fill = "white" });//link.findObject("SHAPE").stroke; });
     }
 
     // save a model to and load a model from Json text, displayed below the Diagram
@@ -363,12 +376,17 @@
 			<textarea id="verilogInputfile" style="width:90%;height:150px; display:block;"></textarea>
 			<button id="ParseVerilog">Parse</button>
 		</div>
+    
 </div>
 
 	
   <div id="buttons">
     <button id="loadModel" onclick="load()">Load</button>
     <button disabled="disabled" id="saveModel" onclick="save()">Save</button>
+    <select id="exportFormat">
+      <option selected="selected" value="pdf">PDF</option>
+      <option value="jpg">JPG</option>
+    </select>
     <button id="exportModel" >Download</button>
   </div>
 
