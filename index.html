@@ -107,21 +107,45 @@
       // define templates for each type of node
       var inputTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Panel, go.Panel.Table,
-            $(go.TextBlock,Textblockstyle(),new go.Binding("text", "name")),
-            $(go.Shape, "Circle", shapeStyle()),  
-            $(go.Shape, "Rectangle", portStyle(false),  // the only port
-              {portId: "", alignment: new go.Spot(1, 0.5) })
-        ));
+            $(go.Shape, "Circle", {desiredSize: new go.Size(30, 30), fill: "white", name: "NODESHAPE", stroke: "white"}),  
+            $(go.Shape, "Rectangle", { desiredSize: new go.Size(1, 1),
+                                        fill: "black",
+                                        fromSpot: go.Spot.Right,
+                                        fromLinkable: true,
+                                        toSpot: go.Spot.Left,
+                                        toLinkable: false,
+                                        toMaxLinks: 1,
+                                        cursor: "pointer",  // the only port
+                                        portId: "", 
+                                        alignment: new go.Spot(1, 0.5) }
+             ),
+            $(go.TextBlock, { font: "bold 11pt Helvetica, bold Arial, sans-serif",
+                              alignment: go.Spot.Center,
+                              width: 30,
+                              editable: false,
+                              wrap: go.TextBlock.WrapFit}, new go.Binding("text", "name"))
+          );
 
       var outputTemplate =
         $(go.Node, "Spot", nodeStyle(),
-          $(go.Panel, go.Panel.Table,
-            $(go.TextBlock,Textblockstyle(), {row:0, column:1}, new go.Binding("text", "name")),
-            $(go.Shape, "Rectangle", shapeStyle(),{row:1, column:1}),
-            $(go.Shape, "Rectangle", portStyle(true),  // the only port
-            { row:1, column:0, portId: "", alignment: new go.Spot(0, 0.5) })
-        ));
+            $(go.Shape, "Rectangle", {desiredSize: new go.Size(30, 30), fill: "white", name: "NODESHAPE", stroke: "white"}),
+            $(go.Shape, "Rectangle", {  desiredSize: new go.Size(1, 1),
+                                        fill: "black",
+                                        fromSpot: go.Spot.Right,
+                                        fromLinkable: false,
+                                        toSpot: go.Spot.Left,
+                                        toLinkable: true,
+                                        toMaxLinks: 1,
+                                        cursor: "pointer",  // the only port
+                                        portId: "", 
+                                        alignment: new go.Spot(0, 0.5) }
+             ),
+            $(go.TextBlock, { font: "bold 11pt Helvetica, bold Arial, sans-serif",
+                              alignment: go.Spot.Center,
+                              width: 30,
+                              editable: false,
+                              wrap: go.TextBlock.WrapFit}, new go.Binding("text", "name"))
+        );
 
       var andTemplate =
         $(go.Node, "Spot", nodeStyle(),

@@ -22,10 +22,17 @@ var VerilogParser = function (input) {
 	  this.Outputwires = Outputwires;
 	  this.Location = Location;
   };
+  this.GojsDiagramModel = new Object();
   this.ElementsCollection = new Array();
   //Coordinates for the diagram
   this.Leftmost = -590;
+  this.Rightmost = 280;
   this.Middle = 50;
+  this.InputElementSize = 30;
+  this.InputElementSizeBetween = 0.5 * this.InputElementSize + 8;
+  this.LastInsertedElementPositionX;
+  this.LastInsertedElementPositionY;
+  this.ElementBetweenSize = 60;
 };
 
 //This loop goes through the input content and identifies beginning, end and body of the input
@@ -48,9 +55,11 @@ VerilogParser.prototype.elementfinder = function(element, index, array) {
 	try {
 		if (element.match(/input/g)){
 			element = element.replace(/input/g,"").replace(/(\r\n|\n|\r)/gm,"").trim().split(",");
+			element = element.map(function(el) {return el.trim();});
 			this.InputElement.push.apply(this.InputElement, element);
 		}else if (element.match(/output/g)){
 			element = element.replace(/output/g,"").replace(/(\r\n|\n|\r)/gm,"").trim().split(",");
+			element = element.map(function(el) {return el.trim();});
 			this.OutputElement.push.apply(this.OutputElement, element);
 		}else if(element.match(/wire/g)){
 			element = element.replace(/wire/g,"").replace(/(\r\n|\n|\r)/gm,"").trim().split(",");
@@ -87,6 +96,15 @@ VerilogParser.prototype.RaiseStatusMessage = function(status, message) {
 //---------------------------
 
 
+//Helper function for identifying elements that has connections with input elements
+VerilogParser.prototype.isConnectedToInputElement = function(thearray, element, index, array) {
+	console.log(element);
+	console.log(thearray);
+	return (thearray.indexOf(element) != -1 || thearray.indexOf(element.toUpperCase()) != -1 ) ? element: "";
+};
+//-----------------------------------------
+
+
 //Helper function for creating GOjs Diagram main logic elements
 VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array) {
 	var LogicElement = new Object();
@@ -100,6 +118,20 @@ VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array)
 				LogicElement.name = element[property];
 				break;
 			case "Location":
+				//Check if is the element that requires to be connected to the input element
+				var isConnected = this.InputElement.map(this.isConnectedToInputElement.bind(this, element["Inputwires"]));
+				console.log(isConnected.filter(function(el) {return el.length != 0;}).length);
+				switch(isConnected.filter(function(el) {return el.length != 0;}).length){
+					case 2:
+						//If there are other input elements put them more down
+						console.log(this.GojsDiagramModel);
+						break;
+					case 1:
+						break;
+					default:
+						break;
+				};
+				
 				var randnumber = Math.floor(Math.random() * 200) + 1;
 				LogicElement.loc =  randnumber + " " + randnumber;
 				break;
@@ -110,7 +142,7 @@ VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array)
 //---------------------------
 
 
-//Helper function for creating GOjs Diagram input/output elements
+//Helper function for creating GOjs Diagram input/output elements and positioning
 VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, array) {
 
 	if (JSON.stringify(array) == JSON.stringify(this.InputElement))
@@ -119,14 +151,19 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 		InputElement.category = "input";
 		InputElement.key = "input";
 		InputElement.name = element;
-		var LocY = (index == 0? this.Middle: this.Middle + (index+1)*60);
+		var LocY = (index == 0? this.Middle: this.LastInsertedElementPositionY + this.InputElementSizeBetween);
 		InputElement.loc = this.Leftmost + " " + LocY;
+		this.LastInsertedElementPositionX = this.Leftmost;
+		this.LastInsertedElementPositionY = LocY;
 		return InputElement;
 	}else{
 		var OutputElement = new Object();
 		OutputElement.category = "output";
 		OutputElement.key = "output";
 		OutputElement.name = element;
+		var LocX = (typeof  this.LastInsertedElementPositionX === "undefined" ? this.Rightmost: this.LastInsertedElementPositionX + this.ElementBetweenSize);
+		var LocY = (index == 0? this.Middle: this.Middle + (index+0.5)*this.InputElementSize);
+		OutputElement.loc = LocX + " " + LocY;
 		return OutputElement;
 	}
 
@@ -135,17 +172,19 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 
 // Translates the object with verilog elements to Gojs model
 VerilogParser.prototype.createGojsDiagramModel = function() {
-	var GojsDiagramModel = new Object();
-	GojsDiagramModel.class = "go.GraphLinksModel";
-	GojsDiagramModel.linkFromPortIdProperty = "fromPort";
-	GojsDiagramModel.linkToPortIdProperty = "toPort";
-	GojsDiagramModel.nodeDataArray = new Array();
-	GojsDiagramModel.nodeDataArray.push.apply(GojsDiagramModel.nodeDataArray, this.ElementsCollection.map(this.GojsDiagramModelHelper.bind(this)));
-	//Add the standard input output elements
-	GojsDiagramModel.nodeDataArray.push.apply(GojsDiagramModel.nodeDataArray, this.InputElement.map(this.GojsDiagramIOElementHelper.bind(this)));
-	GojsDiagramModel.nodeDataArray.push.apply(GojsDiagramModel.nodeDataArray, this.OutputElement.map(this.GojsDiagramIOElementHelper.bind(this)));
 	
-	return JSON.stringify(GojsDiagramModel, null, 4);
+	this.GojsDiagramModel.class = "go.GraphLinksModel";
+	this.GojsDiagramModel.linkFromPortIdProperty = "fromPort";
+	this.GojsDiagramModel.linkToPortIdProperty = "toPort";
+	this.GojsDiagramModel.nodeDataArray = new Array();
+	//Firstly lets draw and position Input elements
+	this.GojsDiagramModel.nodeDataArray.push.apply(this.GojsDiagramModel.nodeDataArray, this.InputElement.map(this.GojsDiagramIOElementHelper.bind(this)));
+	// Secondly lets draw and position logic elements
+	this.GojsDiagramModel.nodeDataArray.push.apply(this.GojsDiagramModel.nodeDataArray, this.ElementsCollection.map(this.GojsDiagramModelHelper.bind(this)));
+	//Add lastly the output elements
+	this.GojsDiagramModel.nodeDataArray.push.apply(this.GojsDiagramModel.nodeDataArray, this.OutputElement.map(this.GojsDiagramIOElementHelper.bind(this)));
+	
+	return JSON.stringify(this.GojsDiagramModel, null, 4);
 	
 };
 //---------------------------------
