@@ -3,6 +3,7 @@ document.getElementById("ParseVerilog").addEventListener("click", ParsetoGojs);
 document.getElementById("exportModel").addEventListener("click", downloadDiagram);
 
 
+
 // Verilog parser class
 var VerilogParser = function (input) {
   this.input = input;
@@ -63,16 +64,16 @@ VerilogParser.prototype.elementfinder = function(element, index, array) {
 			this.OutputElement.push.apply(this.OutputElement, element);
 		}else if(element.match(/wire/g)){
 			element = element.replace(/wire/g,"").replace(/(\r\n|\n|\r)/gm,"").trim().split(",");
-			this.WireElement.push.apply(this.WireElement, element);
+			this.WireElement.push.apply(this.WireElement, element.map( function(item) { return item.trim();} ));
 		}else{
 			var array = element.replace(/(\r\n|\n|\r)/gm,"").trim().split("(");
 			var relations = array[1].replace(')','').trim().split(",").filter(function(el) {return el.length != 0;});
 			var outputwires = relations.slice(-1)[0].trim();
-			var inputwires = relations.slice(0, -1).map( function(item) { return item.trim()} ); 
+			var inputwires = relations.slice(0, -1).map( function(item) { return item.trim();} ); 
 			array = array[0].trim().split(" ").filter(function(el) {return el.length != 0;});
-			var components = array[0].trim().split(/(\d)/g).filter(function(el) {return el.length != 0;}), component = components[0], portsQTY = (components[1] ? components[1]: "") ;
+			var components = array[0].trim().split(/(\d)/g).filter(function(el) {return el.length != 0;}), component = components[0], portsQTY = (components[1] ? components[1]: 1);
 			var name = array[1].trim();
-			this.ElementsCollection.push(new this.LogicElement(component, name, (portsQTY == 2 ? component : component + portsQTY), portsQTY, inputwires, outputwires));
+			this.ElementsCollection.push(new this.LogicElement(component, name, (portsQTY == 2 || portsQTY == 1) ? component : component + portsQTY, portsQTY, inputwires, outputwires));
 		}
 	}catch(err) {
 		this.RaiseError("Parsing",1, "Unable to identify one or more logic elements. Please double-check the Verilog input file. ");
@@ -98,9 +99,9 @@ VerilogParser.prototype.RaiseStatusMessage = function(status, message) {
 
 //Helper function for identifying elements that has connections with input elements
 VerilogParser.prototype.isConnectedToInputElement = function(thearray, element, index, array) {
-	console.log(element);
-	console.log(thearray);
-	return (thearray.indexOf(element) != -1 || thearray.indexOf(element.toUpperCase()) != -1 ) ? element: "";
+	var tempindex  = (thearray.indexOf(element) != -1 ) ? thearray.indexOf(element) : thearray.indexOf(element.toUpperCase());
+	return (tempindex != -1 ) ? [element,tempindex+1]: "";
+	
 };
 //-----------------------------------------
 
@@ -112,15 +113,15 @@ VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array)
 		switch(property) {
 			case "Gojsname":
 				LogicElement.category = element[property];
-				LogicElement.key = element[property];
 				break;
 			case "Name":
 				LogicElement.name = element[property];
+				LogicElement.key = element[property];
 				break;
 			case "Location":
 				//Check if is the element that requires to be connected to the input element
+				/*
 				var isConnected = this.InputElement.map(this.isConnectedToInputElement.bind(this, element["Inputwires"]));
-				console.log(isConnected.filter(function(el) {return el.length != 0;}).length);
 				switch(isConnected.filter(function(el) {return el.length != 0;}).length){
 					case 2:
 						//If there are other input elements put them more down
@@ -131,7 +132,7 @@ VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array)
 					default:
 						break;
 				};
-				
+				*/
 				var randnumber = Math.floor(Math.random() * 200) + 1;
 				LogicElement.loc =  randnumber + " " + randnumber;
 				break;
@@ -149,7 +150,7 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 	{
 		var InputElement = new Object();
 		InputElement.category = "input";
-		InputElement.key = "input";
+		InputElement.key = element;
 		InputElement.name = element;
 		var LocY = (index == 0? this.Middle: this.LastInsertedElementPositionY + this.InputElementSizeBetween);
 		InputElement.loc = this.Leftmost + " " + LocY;
@@ -159,7 +160,7 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 	}else{
 		var OutputElement = new Object();
 		OutputElement.category = "output";
-		OutputElement.key = "output";
+		OutputElement.key = element;
 		OutputElement.name = element;
 		var LocX = (typeof  this.LastInsertedElementPositionX === "undefined" ? this.Rightmost: this.LastInsertedElementPositionX + this.ElementBetweenSize);
 		var LocY = (index == 0? this.Middle: this.Middle + (index+0.5)*this.InputElementSize);
@@ -169,6 +170,54 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 
 };
 //--------------------------------
+
+
+// Helper function for conencting to Input elements
+VerilogParser.prototype.ConnectToInputElements = function(TheElement, element, index, array) {
+	var Link = new Object();
+	Link.from = element[0];
+	Link.fromPort = "out";
+	Link.to = TheElement["Name"];
+	Link.toPort = (TheElement["portsQTY"] == 1)? "in": "in" + element[1];
+	return Link;
+};
+//---------------------------------------------
+
+
+
+//Helper function for identifying the Logic element that takes the wire as a function
+VerilogParser.prototype.findtoLogicOutput = function(Wire, element, index, array) {
+	var regSearch = new RegExp(Wire, 'gi');
+	return (element["Outputwires"].match(regSearch)) ? element["Name"]: "";
+};
+//-----------------------------------------
+
+
+//Helper function for connecting Logic elements
+VerilogParser.prototype.ConnectLogicElements = function(TheElement, element, index, array) {
+	var Link = new Object();
+	var temp = this.ElementsCollection.filter(function(el,ind){ return TheElement["Name"] != el["Name"];}).map(this.findtoLogicOutput.bind(this, element[0]));
+	Link.to = TheElement["Name"];
+	Link.toPort = (TheElement["portsQTY"] == 1)? "in": "in" + element[1];
+	Link.from = temp.filter(function(el){ return el.length != 0;})[0];
+	Link.fromPort = "out";
+	return Link;
+};
+//-----------------------------------------
+
+
+// Helper function for conencting elements
+VerilogParser.prototype.GojsDiagramElementConnector = function(element, index, array) {
+		//Check if should be connected to an input element
+		var isConnected = this.InputElement.map(this.isConnectedToInputElement.bind(this, element["Inputwires"])).filter(function(el) {return el.length != 0; });
+		this.GojsDiagramModel.linkDataArray.push.apply(this.GojsDiagramModel.linkDataArray, isConnected.map(this.ConnectToInputElements.bind(this, element)));
+		// otherwise if connected to other element except output element
+		var isLogicConnected = this.WireElement.map(this.isConnectedToInputElement.bind(this, element["Inputwires"])).filter(function(el) {return el.length != 0; });
+		//look for which logic element is the wire output
+		this.GojsDiagramModel.linkDataArray.push.apply(this.GojsDiagramModel.linkDataArray, isLogicConnected.map(this.ConnectLogicElements.bind(this, element)));
+		//console.log(isLogicConnected);
+};
+//-----------------------------------
 
 // Translates the object with verilog elements to Gojs model
 VerilogParser.prototype.createGojsDiagramModel = function() {
@@ -183,7 +232,10 @@ VerilogParser.prototype.createGojsDiagramModel = function() {
 	this.GojsDiagramModel.nodeDataArray.push.apply(this.GojsDiagramModel.nodeDataArray, this.ElementsCollection.map(this.GojsDiagramModelHelper.bind(this)));
 	//Add lastly the output elements
 	this.GojsDiagramModel.nodeDataArray.push.apply(this.GojsDiagramModel.nodeDataArray, this.OutputElement.map(this.GojsDiagramIOElementHelper.bind(this)));
-	
+	// From here we start connecting the elements
+	this.GojsDiagramModel.linkDataArray = new Array();
+	this.ElementsCollection.forEach(this.GojsDiagramElementConnector.bind(this));
+
 	return JSON.stringify(this.GojsDiagramModel, null, 4);
 	
 };
@@ -205,7 +257,7 @@ VerilogParser.prototype.parse = function() {
 			//Write to textarea
 			document.getElementById('mySavedModel').value = JsonGojs;
 		}catch(err) {
-		    this.RaiseStatusMessage("b");
+		    this.RaiseStatusMessage("b","h");
 		}
 
 	}else{
@@ -227,10 +279,15 @@ function cleanArray(actual){
 };
 
 
-// Download helper function
-function downloadHelper(context, canvas, w, h){
+
+// Exporting Diagram to a file, first clipping the watermark
+function downloadDiagram(Format){
+	var canvas = document.getElementById("myDiagram").getElementsByTagName("Canvas")[0];
+	var context = canvas.getContext('2d');
+	var w = canvas.width;
+    var h = canvas.height;
 	//get the current ImageData for the canvas.
-	data = context.getImageData(0, 0, w, h);
+	var data = context.getImageData(0, 0, w, h);
 	//store the current globalCompositeOperation
 	var compositeOperation = context.globalCompositeOperation;
 	//set to draw behind current content
@@ -241,36 +298,14 @@ function downloadHelper(context, canvas, w, h){
 	context.fillRect(0,0,w,h);
 	// only jpeg is supported by jsPDF
 	var imgData = canvas.toDataURL("image/jpeg", 1.0);
-	return imgData;
-};
-//-------------------------
-
-
-// Exporting Diagram to a file, first clipping the watermark
-function downloadDiagram(Format){
-	var canvas = document.getElementById("myDiagram").getElementsByTagName("Canvas")[0];
-	var context = canvas.getContext('2d');
-	var w = canvas.width;
-    var h = canvas.height;
-	imgData = downloadHelper(context, canvas, w, h);
-	img = new Image();
+	var img = new Image();
 	img.src = imgData;
-	img.width  = w *4;
-	img.height = h*4;
-	document.body.appendChild(img);
-	canvas.width = w;
-	canvas.height = h;
-    context.drawImage(img, 0, h*0.2, w, 0.8*h, 0, 0, w, 0.8*h);
-	document.body.removeChild(img);
-	newimgData = downloadHelper(context, canvas, w, h);
-	img = new Image();
-	img.src = newimgData;
 	document.body.appendChild(img);
 	var exportFormat = document.getElementById("exportFormat").value;
 	switch(exportFormat) {
 		case "jpg":
 			var a = document.createElement('a');
-			a.href = newimgData;
+			a.href = imgData;
 			a.download = "output.jpg";
 			document.body.appendChild(a);
 			a.click();
@@ -279,12 +314,10 @@ function downloadDiagram(Format){
 		case "pdf":
 			var pdf = new jsPDF('landscape');
 			pdf.addImage(img, 'JPEG', 0, 0);
-			document.body.removeChild(img);
 			pdf.save("download.pdf");
 			break;
-	}
-	
-
+	};
+	document.body.removeChild(img);
 };
 //-----------------------
 
