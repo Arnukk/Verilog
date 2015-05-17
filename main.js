@@ -25,6 +25,12 @@ var VerilogParser = function (input) {
   };
   this.GojsDiagramModel = new Object();
   this.ElementsCollection = new Array();
+  //Elements sizing and canvas coordinates
+  this.IOsize = 30;
+  this.LogicElementSize = 60;
+  this.canvas = document.getElementById("myDiagram").getElementsByTagName("Canvas")[0];
+  this.CanvasWidth = this.canvas.width;
+  this.CanvasHeight = this.canvas.height;
 };
 
 //This loop goes through the input content and identifies beginning, end and body of the input
@@ -80,10 +86,71 @@ VerilogParser.prototype.RaiseError = function(Type, code, message) {
 //--------------------------------------
 
 
-//Helper function for locating elements (for the time being just randomly)
+//Helper function for creating KLAY object childs
+VerilogParser.prototype.KlayObjectCreator = function(element, index, array) {
+	var KlayChildElement = new Object();
+	KlayChildElement.id = element["name"];
+	KlayChildElement.width = (element["category"] == "input" || element["category"] == "output")? this.IOsize : this.LogicElementSize ;
+	KlayChildElement.height = KlayChildElement.width;
+	KlayChildElement.spacing = (element["category"] == "input" || element["category"] == "output")? 10 : 70 ;
+	return KlayChildElement;
+};
+//-------------------------------------------------
+
+
+//Helper function for creating KLAY object edges  
+VerilogParser.prototype.KlayConnectorCreator = function(element, index, array) {
+	var KlayEdgeElement = new Object();
+	KlayEdgeElement.id = element["from"] + element["to"]  + element["toPort"];
+	KlayEdgeElement.source = element["from"];
+	KlayEdgeElement.target = element["to"];
+	return KlayEdgeElement;
+};
+//-------------------------------------------------
+
+
+//Helper function for applying obtained locations to GOJS graph
+VerilogParser.prototype.GOjsElementLocator = function(self, element, index, array) {
+	var Xscaler = 0 - Math.round(self.CanvasWidth*0.9/2);
+	var Yscaler = 0 - Math.round(self.CanvasHeight*0.9/2);
+	self.GojsDiagramModel.nodeDataArray[index].loc = (element["x"] + Xscaler) + " " + (element["y"] + Yscaler);
+};
+
+//Init Klay algorithm class 
+VerilogParser.prototype.klayinit = function(Klaygraph, self) {
+	// execute the layout 
+	$klay.layout({
+		graph: Klaygraph,
+		options: {
+			spacing: 70,
+			intCoordinates:false,
+			direction: "RIGHT",
+			edgeRouting: "ORTHOGONAL",
+			nodeLabelPlacement:"V_TOP",
+			portConstraints:"FIXED_POS",
+			thoroughness:20,
+			crossMin:"LAYER_SWEEP"
+		},
+		success: function(layouted) {
+			console.log(layouted);
+			layouted.children.forEach(self.GOjsElementLocator.bind(this, self));
+		}
+	});
+};
+//-------------------------------------------------
+
+//Helper function for locating elements 
 VerilogParser.prototype.locateElements = function() {
-	var randnumber = Math.floor(Math.random() * 200) + 1;
-	return (randnumber + " " + randnumber);
+		var Klaygraph = new Object();
+		Klaygraph.children = new Array();
+		Klaygraph.children.push.apply(Klaygraph.children, this.GojsDiagramModel.nodeDataArray.map(this.KlayObjectCreator.bind(this)));
+		Klaygraph.edges = new Array();
+		Klaygraph.edges.push.apply(Klaygraph.edges, this.GojsDiagramModel.linkDataArray.map(this.KlayConnectorCreator.bind(this)));
+		try{
+			this.klayinit(Klaygraph, this);
+		}catch(err) {
+			this.RaiseError("Locating",2, "Something went wrong while locating the elements.");
+		};
 };
 //-----------------------------------------
 
@@ -108,9 +175,6 @@ VerilogParser.prototype.GojsDiagramModelHelper = function(element, index, array)
 				LogicElement.name = element[property];
 				LogicElement.key = element[property];
 				break;
-			case "Location":
-				LogicElement.loc =  this.locateElements();
-				break;
 		} 
 	}
 	return LogicElement;
@@ -127,14 +191,12 @@ VerilogParser.prototype.GojsDiagramIOElementHelper = function(element, index, ar
 		InputElement.category = "input";
 		InputElement.key = element;
 		InputElement.name = element;
-		InputElement.loc =  this.locateElements();
 		return InputElement;
 	}else{
 		var OutputElement = new Object();
 		OutputElement.category = "output";
 		OutputElement.key = element;
 		OutputElement.name = element;
-		OutputElement.loc =  this.locateElements();
 		return OutputElement;
 	}
 
@@ -220,6 +282,8 @@ VerilogParser.prototype.createGojsDiagramModel = function() {
 	// From here we start connecting the elements
 	this.GojsDiagramModel.linkDataArray = new Array();
 	this.ElementsCollection.forEach(this.GojsDiagramElementConnector.bind(this));
+	//From here goes the positioning algorithm
+	this.locateElements();
 	return JSON.stringify(this.GojsDiagramModel, null, 4);
 	
 };
